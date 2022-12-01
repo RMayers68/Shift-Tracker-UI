@@ -1,4 +1,5 @@
 ﻿using ConsoleTableExt;
+using System.Net.Http.Json;
 using System.Text.Json;
 
 
@@ -10,72 +11,115 @@ namespace Shift_Tracker_UI
         private static readonly HttpClient client = new HttpClient();
         static async Task Main(string[] args)
         {
-            string stackSelection;
+            // Menu setup
+            string[] menu = { "Shift Tracker", "1: View Shifts", "2: Enter New Shift Information", "0: Exit Program" };
+            List<string> menuList = new(menu);
+
+            // Variable declarations
+            int menuChoice = 0;
             bool closeProgram = false;
-            while (!closeProgram)                                                     //MAIN MENU
+            bool shiftStarted = false;
+            DateTime start = DateTime.Now,end;
+            decimal pay, minutes;
+            string location = "";
+            //MAIN MENU
+            while (!closeProgram)                                                     
             {
                 Console.Clear();
-                List<Shifts> list = await ProcessJSONRequest("https://localhost:5001/api/shifts");
-                Console.ReadKey();
-                /*Console.WriteLine("Please enter a Category you would like to choose (type exactly as shown) or input Exit to terminate:");
-                stackSelection = TextCheck(list);
-                bool goBack = false;
-                string drinkChoice;
-                if (stackSelection == "Exit")
+                ConsoleTableBuilder.From(menuList).ExportAndWriteLine(TableAligntment.Center);
+                menuChoice = CountCheck(2, 0);
+                Console.Clear();
+                switch (menuChoice)
                 {
-                    Console.WriteLine("Goodbye!");
-                    Console.ReadKey();
-                    closeProgram = true;
-                }
-                else while (!goBack)
-                    {
-                        list.Clear();
-                        Console.Clear();
-                        list = await ProcessJSONRequest($"https://www.thecocktaildb.com/api/json/v1/1/filter.php?c={stackSelection}");
-                        Console.WriteLine("Please enter the drink you would like to know more about or enter \"Go Back\":");
-                        drinkChoice = TextCheck(list);
-                        if (drinkChoice == "Go Back")
-                            goBack = true;
-                        else
+                    // Exit Program
+                    default:                            
+                        closeProgram = true;
+                        break;
+                    // Read
+                    case 1:                             
+                        List<Shift> shiftList = await ProcessJSONRequest("https://localhost:5001/api/shifts");
+                        Console.ReadKey();
+                        break;
+                    // Create
+                    case 2:                             
+                        if (!shiftStarted)
                         {
-                            Console.Clear();
-                            await ProcessJSONRequest($"https://www.thecocktaildb.com/api/json/v1/1/search.php?s={drinkChoice}");
-                            Console.WriteLine("Press any key to return to drink list...");
+                            start = DateTime.Now;
+                            Console.WriteLine($"Your shift has started at {start.ToLocalTime()}");
                             Console.ReadKey();
+                            shiftStarted = true;
+                            break;
                         }
-                    }*/
+                        end = DateTime.Now;
+                        Console.WriteLine($"Your shift has ended at {end.ToLocalTime()}");
+                        Console.WriteLine("Please enter your pay per hour amount: (Example 29.41 or 35.00)");
+                        pay = PayCheck();
+                        minutes = ShiftCalc(start, end);
+                        Console.WriteLine("Please enter the location the work was performed.");
+                        location = EmptyStringCheck();
+                        Shift tmp = new(start, end, pay, minutes, location);
+                        HttpResponseMessage response = await client.PostAsJsonAsync("https://localhost:5001/api/shifts", tmp);
+                        if (response.IsSuccessStatusCode)
+                            Console.WriteLine("Your shift was entered successfully!");
+                        else
+                            Console.WriteLine("Internal server error, please try again.");
+                        Console.ReadKey();
+                        shiftStarted = false;
+                        break;
+                }
             }
         }
 
 
 
-        // Data Validation
-        public static string TextCheck(List<string> list)
-        {
-            while (true)
+            // Data Validation
+            public static int CountCheck(int count, int menuOrList)
+            {
+                int a;
+                while (!Int32.TryParse(Console.ReadLine(), out a) || a < menuOrList || a > count)
+                    Console.WriteLine("Invalid input, enter again:");
+                return a;
+            }
+
+            public static string EmptyStringCheck()
             {
                 string a = Console.ReadLine();
-                if (a == "Go Back" || a == "Exit")
-                    return a;
-                foreach (var category in list)
-                    if (category == a)
-                        return a;
-                Console.WriteLine("Invalid input, please enter the correct name: ");
+                while (String.IsNullOrWhiteSpace(a))
+                {
+                    Console.WriteLine("Invalid input, enter again:");
+                    a = Console.ReadLine();
+                }
+                return a;
             }
-        }
 
-        //JSON Object Handling
-        private static async Task<List<Shifts>> ProcessJSONRequest(string URL)
-        {
-            var streamTask = client.GetStreamAsync(URL);
-            var shifts = await JsonSerializer.DeserializeAsync<List<Shifts>>(await streamTask);
-            List<Shifts> list = new List<Shifts>();
-            foreach (var x in shifts)
+            public static decimal PayCheck()
             {
-                list.Add(x);    
+            decimal pay = 0;
+                while (!Decimal.TryParse(Console.ReadLine(), out pay) || pay < 0)
+                    Console.WriteLine("Invalid input, enter again:");
+            return pay;
             }
-            ConsoleTableBuilder.From(list).WithTitle("Shifts").ExportAndWriteLine(TableAligntment.Center);
-            return list;
+
+        // Data Processing
+
+        public static decimal ShiftCalc(DateTime start, DateTime end)
+            {
+                decimal minutes = Convert.ToDecimal((end - start).TotalMinutes);
+                return minutes;
+            }
+
+            //JSON Object Handling
+            private static async Task<List<Shift>> ProcessJSONRequest(string URL)
+            {
+                var streamTask = client.GetStreamAsync(URL);
+                var shifts = await JsonSerializer.DeserializeAsync<List<Shift>>(await streamTask);
+                List<Shift> list = new List<Shift>();
+                foreach (var x in shifts)
+                {
+                    list.Add(x);
+                }
+                ConsoleTableBuilder.From(list).WithTitle("Shifts").ExportAndWriteLine(TableAligntment.Center);
+                return list;
+            }
         }
     }
-}

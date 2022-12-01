@@ -1,33 +1,33 @@
 ﻿using Newtonsoft.Json;
+using System;
 
 namespace Shift_Tracker_UI
 {
 
-    public class Shifts
+    public class Shift
     {
-        public int? shiftId { get; set; }
         public DateTime? start { get; set; }
         public DateTime? end { get; set; }
         public decimal? pay { get; set; }
         public decimal? minutes { get; set; }
         public string? location { get; set; }
 
-        public Shifts()
+        public Shift()
         {
 
         }
-        public Shifts(int ShiftId, DateTime Start, DateTime End, decimal Pay, decimal Minutes, string Location)
+
+        public Shift(DateTime Start, DateTime End, decimal Pay, decimal Minutes, string Location)
         {
-            this.shiftId = ShiftId;
             this.start = Start;
             this.end = End;
             this.pay = Pay;
             this.minutes = Minutes;
             this.location = Location;
         }
-        public Shifts(Shifts shift)
+
+        public Shift(Shift shift)
         {
-            this.shiftId = shift.shiftId;
             this.start = shift.start;
             this.end = shift.end;
             this.pay = shift.pay;
